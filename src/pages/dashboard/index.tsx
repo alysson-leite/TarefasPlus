@@ -7,10 +7,11 @@ import { Textarea } from '../../components/Textarea';
 
 import { FiShare2 } from 'react-icons/fi';
 import { FaTrash } from 'react-icons/fa';
+import { AiFillEdit } from 'react-icons/ai'
 
 // importando métodos do firestore para integrar Data Base
 import { db } from '../../services/firebaseConnection';
-import { addDoc, collection, query, orderBy, where, onSnapshot, doc, deleteDoc } from 'firebase/firestore';
+import { addDoc, collection, query, orderBy, where, onSnapshot, doc, updateDoc, deleteDoc } from 'firebase/firestore';
 
 import Link from "next/link";
 
@@ -33,6 +34,7 @@ export default function Dashboard({ user }: HomeProps) {
     const [input, setInput] = useState("");
     const [publicTask, setPublicTask] = useState(false);
     const [tasks, setTasks] = useState<TaskProps[]>([]);
+    const [editTaskId, setEditTaskId] = useState<string | null>(null);
 
     useEffect(() => {
         async function loadTarefas() {
@@ -69,24 +71,34 @@ export default function Dashboard({ user }: HomeProps) {
     }
 
     // Função assíncrona para comunicar com o Banco de Dados
-    async function handleRegisterTask(event: FormEvent) {
+    async function handleRegisterTask(event: FormEvent, taskId?: string) {
         event.preventDefault();
 
         if (input === "") return;
 
         try {
-            await addDoc(collection(db, "tarefas"), {
-                tarefa: input,
-                created: new Date(),
-                user: user?.email,
-                public: publicTask,
-            });
-
-            setInput("");
-            setPublicTask(false);
-        } catch (err) {
-            console.log(err);
-        }
+            if (taskId) {
+                // Editar a tarefa existente
+                const docRef = doc(db, "tarefas", taskId);
+                await updateDoc(docRef, {
+                    tarefa: input,
+                    public: publicTask,
+                });
+            } else {
+                // Criar uma nova tarefa
+                await addDoc(collection(db, "tarefas"), {
+                    tarefa: input,
+                    created: new Date(),
+                    user: user?.email,
+                    public: publicTask,
+                });
+            }
+                setInput("");
+                setPublicTask(false);
+                setEditTaskId(null);
+            } catch (err) {
+                console.log(err);
+            }
     }
 
     async function handleShare(id: string) {
@@ -102,6 +114,15 @@ export default function Dashboard({ user }: HomeProps) {
         await deleteDoc(docRef);
     }
 
+    function handleEditTask(taskId: string) {
+        const task = tasks.find((item) => item.id === taskId);
+        if (task) {
+          setInput(task.tarefa);
+          setPublicTask(task.public);
+          setEditTaskId(taskId);
+        }
+    }
+
     return (
         <div className={styles.container}>
             <Head>
@@ -115,7 +136,7 @@ export default function Dashboard({ user }: HomeProps) {
                     <div className={styles.contentForm}>
                         <h1 className={styles.title}>Qual a sua Tarefa?</h1>
 
-                        <form onSubmit={handleRegisterTask}>
+                        <form onSubmit={(event) => handleRegisterTask(event, editTaskId ?? undefined)}>
                             <Textarea
                                 placeholder="Digite qual a sua tarefa..."
                                 value={input}
@@ -134,7 +155,7 @@ export default function Dashboard({ user }: HomeProps) {
                             </div>
 
                             <button type="submit" className={styles.button}>
-                                Registrar
+                                {editTaskId ? "Salvar" : "Registrar"}
                             </button>
 
                         </form>
@@ -170,12 +191,21 @@ export default function Dashboard({ user }: HomeProps) {
                                     <p>{item.tarefa}</p>
                                 )}
 
-                                <button
-                                    className={styles.trashButton}
-                                    onClick={() => handleDeleteTask(item.id)}
-                                >
-                                    <FaTrash size={24} color="#ea3140" />
-                                </button>
+                                <div className={styles.buttonContent}>
+                                    <button
+                                        className={styles.editButton}
+                                        onClick={() => handleEditTask(item.id)}
+                                    >
+                                        <AiFillEdit size={26} color="#808080" />
+                                    </button>
+
+                                    <button
+                                        className={styles.trashButton}
+                                        onClick={() => handleDeleteTask(item.id)}
+                                    >
+                                        <FaTrash size={24} color="#ea3140" />
+                                    </button>
+                                </div>
                             </div>
                         </article>
                     ))}

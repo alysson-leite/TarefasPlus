@@ -122,3 +122,10 @@
     border: 0;
     margin: 0 8px;
 }
+
+.editButton {
+    cursor: pointer;
+    background: transparent;
+    border: 0;
+    margin: 0 8px;
+}
